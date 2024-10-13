@@ -8,8 +8,7 @@
 - [🚀 Sistemos paskirtis](#-sistemos-paskirtis)
 - [🔧 Funkciniai reikalavimai](#-funkciniai-reikalavimai)
 - [🛠️ Pasirinktos technologijos](#-pasirinktos-technologijos)
-- [👥 Kūrėjai](#-kūrėjai)
-- [📄 Licencija](#-licencija)
+
 
 ---
 
@@ -51,28 +50,14 @@ Sistema yra padalinta į tris naudotojų tipus:
 - Kiekvienas žaidimas priklauso kategorijai.
 - Žaidimai gali turėti vartotojų sukurtus komentarus.
 - Žaidimai yra filtruojami pagal kategorijas.
-- Komentarai yra vertinami pagal aktualumą ir pateiktą informaciją.
 
 ---
 
 ## 🛠️ Pasirinktos technologijos
 
 - **Front-end**:  
-  - **React**: Pasirinkta dėl gausaus bibliotekų ir plėtinių skaičiaus.  
-    - [React dokumentacija](https://reactjs.org/docs/getting-started.html)
-
+  - **.NET**: Pasirinkta dėl gausaus bibliotekų ir plėtinių skaičiaus.  
 - **Back-end**:  
-  - **Firebase**: Pasirinkta dėl lankstumo ir paprastumo.
-    - [Firebase dokumentacija](https://firebase.google.com/docs)
+  - **Postgre**: Pasirinkta dėl lankstumo ir paprastumo.
 
----
 
-## 👥 Kūrėjai
-
-- **Autorius**: Lukas Kuzmickas
-
----
-
-## 🛡️ Licencija
-
-Licencijuota pagal KTU 2024 licenciją.

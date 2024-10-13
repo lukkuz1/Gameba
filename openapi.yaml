@@ -1,0 +1,473 @@
+openapi: 3.0.0
+info:
+  title: Game API
+  description: An API for managing games, categories, and comments.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5097/api/v1
+
+paths:
+  /categories:
+    get:
+      summary: Get a list of categories
+      tags:
+        - category
+      operationId: getAllCategories
+      responses:
+        "200":
+          description: A list of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+              examples:
+                example1:
+                  value:
+                    - id: 1
+                      name: "Action"
+                    - id: 2
+                      name: "Adventure"
+    post:
+      summary: Create a new category
+      tags:
+        - category
+      operationId: createCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCategory"
+            examples:
+              example1:
+                value:
+                  name: "New Category"
+      responses:
+        "201":
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+
+  /categories/{categoryId}:
+    parameters:
+      - $ref: '#/components/parameters/categoryId'
+    get:
+      summary: Get a category by ID
+      tags:
+        - category
+      operationId: getCategory
+      responses:
+        "200":
+          description: A single category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "404":
+          $ref: "#/components/responses/notFound"
+    put:
+      summary: Update a category by ID
+      tags:
+        - category
+      operationId: updateCategory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCategory"
+            examples:
+              example1:
+                value:
+                  name: "Updated Category Name"
+      responses:
+        "200":
+          description: Updated category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "404":
+          $ref: "#/components/responses/notFound"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+    delete:
+      summary: Delete a category by ID
+      tags:
+        - category
+      operationId: deleteCategory
+      responses:
+        "204":
+          description: Category deleted
+        "404":
+          $ref: "#/components/responses/notFound"
+
+  /categories/{categoryId}/games:
+    parameters:
+      - $ref: '#/components/parameters/categoryId'
+    get:
+      summary: Get a list of games in a specific category
+      tags:
+        - game
+      operationId: getGamesByCategory
+      responses:
+        "200":
+          description: A list of games in the category
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Game"
+    post:
+      summary: Create a new game in a specific category
+      tags:
+        - game
+      operationId: createGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateGame"
+            examples:
+              example1:
+                value:
+                  title: "Game One"
+                  description: "An exciting action game"
+      responses:
+        "201":
+          description: Game created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+
+  /categories/{categoryId}/games/{gameId}:
+    parameters:
+      - $ref: '#/components/parameters/categoryId'
+      - $ref: '#/components/parameters/gameId'
+    get:
+      summary: Get a game by ID within a category
+      tags:
+        - game
+      operationId: getGame
+      responses:
+        "200":
+          description: A single game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "404":
+          $ref: "#/components/responses/notFound"
+    put:
+      summary: Update a game by ID within a category
+      tags:
+        - game
+      operationId: updateGame
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateGame"
+            examples:
+              example1:
+                value:
+                  title: "Updated Game Title"
+                  description: "Updated description for the game"
+      responses:
+        "200":
+          description: Updated game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "404":
+          $ref: "#/components/responses/notFound"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+    delete:
+      summary: Delete a game by ID within a category
+      tags:
+        - game
+      operationId: deleteGame
+      responses:
+        "204":
+          description: Game deleted
+        "404":
+          $ref: "#/components/responses/notFound"
+
+  /categories/{categoryId}/games/{gameId}/comments:
+    parameters:
+      - $ref: '#/components/parameters/categoryId'
+      - $ref: '#/components/parameters/gameId'
+    get:
+      summary: Get comments for a specific game
+      tags:
+        - comment
+      operationId: getCommentsForGame
+      responses:
+        "200":
+          description: List of comments for the game
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      summary: Add a comment for a specific game
+      tags:
+        - comment
+      operationId: createComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComment"
+            examples:
+              example1:
+                value:
+                  content: "Great game!"
+      responses:
+        "201":
+          description: Comment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+
+  /categories/{categoryId}/games/{gameId}/comments/{commentId}:
+    parameters:
+      - $ref: '#/components/parameters/categoryId'
+      - $ref: '#/components/parameters/gameId'
+      - $ref: '#/components/parameters/commentId'
+    get:
+      summary: Get a specific comment by ID
+      tags:
+        - comment
+      operationId: getComment
+      responses:
+        "200":
+          description: A single comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "404":
+          $ref: "#/components/responses/notFound"
+    put:
+      summary: Update a comment by ID
+      tags:
+        - comment
+      operationId: updateComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateComment"
+            examples:
+              example1:
+                value:
+                  content: "Updated comment content"
+      responses:
+        "200":
+          description: Updated comment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Comment"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "404":
+          $ref: "#/components/responses/notFound"
+        "422":
+          $ref: "#/components/responses/unprocessableEntity"
+    delete:
+      summary: Delete a comment by ID
+      tags:
+        - comment
+      operationId: deleteComment
+      responses:
+        "204":
+          description: Comment deleted
+        "404":
+          $ref: "#/components/responses/notFound"
+
+components:
+  schemas:
+    Game:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: integer
+    CreateGame:
+      type: object
+      required:
+        - title
+        - description
+        - categoryId
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 100
+        description:
+          type: string
+          minLength: 5
+          maxLength: 500
+        categoryId:
+          type: integer
+    UpdateGame:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+    CreateCategory:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+    UpdateCategory:
+      type: object
+      properties:
+        name:
+          type: string
+    Comment:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+    CreateComment:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+    UpdateComment:
+      type: object
+      properties:
+        content:
+          type: string
+
+  responses:
+    badRequest:
+      description: Bad request response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              details:
+                type: string
+    notFound:
+      description: Resource was not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+    unprocessableEntity:
+      description: Unprocessable entity response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+              errors:
+                type: array
+                items:
+                  type: string
+
+  parameters:
+    gameId:
+      name: gameId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: The unique identifier of the game
+    commentId:
+      name: commentId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: The unique identifier of the comment
+    categoryId:
+      name: categoryId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: The unique identifier of the category
+
+tags:
+  - name: game
+    description: Operations related to games
+  - name: category
+    description: Operations related to categories
+  - name: comment
+    description: Operations related to comments
+
+externalDocs:
+  description: Find more info here
+  url: https://example.com/docs
