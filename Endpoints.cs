@@ -1,11 +1,25 @@
 using DemoRest2024Live.Data;
 using DemoRest2024Live.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using SharpGrip.FluentValidation.AutoValidation.Endpoints.Extensions;
 using System.Text.Json;
 
 namespace DemoRest2024Live
 {
+    // ErrorResponse class for structured error messages
+    public class ErrorResponse
+    {
+        public string Message { get; set; }
+        public int StatusCode { get; set; }
+        public DateTime Timestamp { get; set; }
+
+        public ErrorResponse(string message, int statusCode)
+        {
+            Message = message;
+            StatusCode = statusCode;
+            Timestamp = DateTime.UtcNow;
+        }
+    }
+
     public static class Endpoints
     {
         public static void MapCategoryEndpoints(this IEndpointRouteBuilder app)
@@ -20,9 +34,11 @@ namespace DemoRest2024Live
 
             app.MapPost("/api/v1/categories", async (CreateCategoryDto dto, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Creating Category: {JsonSerializer.Serialize(dto)}");
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Name) || string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    return Results.BadRequest(new ErrorResponse("Category name and description are required.", 400));
+                }
 
-                // Create new category instance from DTO
                 var category = new Category { Name = dto.Name, Description = dto.Description };
                 dbContext.Categories.Add(category);
                 await dbContext.SaveChangesAsync();
@@ -33,54 +49,46 @@ namespace DemoRest2024Live
 
             app.MapGet("/api/v1/categories/{id}", async (int id, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Fetching Category with ID: {id}");
-
                 var category = await dbContext.Categories.FindAsync(id);
                 if (category == null)
                 {
-                    Console.WriteLine($"Category with ID: {id} not found.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Category with ID: {id} not found.", 404));
                 }
 
-                Console.WriteLine($"Fetched Category: {JsonSerializer.Serialize(category.ToDto())}");
                 return TypedResults.Ok(category.ToDto());
             }).WithName("GetCategory");
 
             app.MapPut("/api/v1/categories/{id}", async (int id, UpdateCategoryDto dto, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Updating Category with ID: {id} using data: {JsonSerializer.Serialize(dto)}");
+                if (dto == null || (dto.Name == null && dto.Description == null))
+                {
+                    return Results.UnprocessableEntity(new ErrorResponse("Either name or description must be provided.", 422));
+                }
 
                 var category = await dbContext.Categories.FindAsync(id);
                 if (category == null)
                 {
-                    Console.WriteLine($"Category with ID: {id} not found for update.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Category with ID: {id} not found.", 404));
                 }
 
-                // Update category properties if provided
-                if (dto.Name != null) category.Name = dto.Name;
-                if (dto.Description != null) category.Description = dto.Description;
-
+                category.Name = dto.Name ?? category.Name;
+                category.Description = dto.Description ?? category.Description;
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"Updated Category: {JsonSerializer.Serialize(category.ToDto())}");
+
                 return Results.Ok(category.ToDto());
             }).WithName("UpdateCategory");
 
             app.MapDelete("/api/v1/categories/{id}", async (int id, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Deleting Category with ID: {id}");
-
                 var category = await dbContext.Categories.FindAsync(id);
                 if (category == null)
                 {
-                    Console.WriteLine($"Category with ID: {id} not found for deletion.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Category with ID: {id} not found.", 404));
                 }
 
                 dbContext.Categories.Remove(category);
                 await dbContext.SaveChangesAsync();
 
-                Console.WriteLine($"Deleted Category ID: {id}");
                 return Results.NoContent();
             }).WithName("DeleteCategory");
         }
@@ -89,104 +97,66 @@ namespace DemoRest2024Live
         {
             app.MapGet("/api/v1/categories/{categoryId}/games", async (int categoryId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Fetching Games for Category ID: {categoryId}");
                 var games = await dbContext.Games.Where(g => g.CategoryId == categoryId).ToListAsync();
-                Console.WriteLine($"Fetched Games: {JsonSerializer.Serialize(games)}");
                 return games;
             }).WithName("GetGamesByCategory");
 
             app.MapPost("/api/v1/categories/{categoryId}/games", async (int categoryId, CreateGameDto dto, GamebaDbContext dbContext) =>
-{
-    // Logging the incoming request
-    Console.WriteLine($"Creating Game in Category ID: {categoryId} with data: {JsonSerializer.Serialize(dto)}");
+            {
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Title) || string.IsNullOrWhiteSpace(dto.Description))
+                {
+                    return Results.BadRequest(new ErrorResponse("Game title and description are required.", 400));
+                }
 
-    // Input validation
-    if (dto == null)
-    {
-        return Results.BadRequest("Game data is required.");
-    }
+                var game = new Game { Title = dto.Title, Description = dto.Description, CategoryId = categoryId };
+                dbContext.Games.Add(game);
+                await dbContext.SaveChangesAsync();
 
-    if (string.IsNullOrWhiteSpace(dto.Title) || string.IsNullOrWhiteSpace(dto.Description))
-    {
-        return Results.BadRequest("Game title and description are required.");
-    }
-
-    // Creating a new game object
-    var game = new Game
-    {
-        Title = dto.Title,
-        Description = dto.Description,
-        CategoryId = categoryId
-    };
-
-    // Adding game to the database
-    dbContext.Games.Add(game);
-
-    try
-    {
-        // Save changes to the database
-        await dbContext.SaveChangesAsync();
-        Console.WriteLine($"Created Game ID: {game.Id}");
-
-        // Returning a success response with the created game
-        return Results.Created($"/api/v1/categories/{categoryId}/games/{game.Id}", game);
-    }
-    catch (Exception ex)
-    {
-        // Logging the error
-        Console.WriteLine($"Error creating game: {ex.Message}");
-        return Results.StatusCode(500);
-    }
-}).WithName("CreateGame");
+                return TypedResults.Created($"/api/v1/categories/{categoryId}/games/{game.Id}", game);
+            }).WithName("CreateGame");
 
             app.MapGet("/api/v1/categories/{categoryId}/games/{gameId}", async (int categoryId, int gameId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Fetching Game with ID: {gameId} in Category ID: {categoryId}");
                 var game = await dbContext.Games.FirstOrDefaultAsync(g => g.Id == gameId && g.CategoryId == categoryId);
                 if (game == null)
                 {
-                    Console.WriteLine($"Game with ID: {gameId} not found in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Game with ID: {gameId} not found in Category ID: {categoryId}.", 404));
                 }
 
-                Console.WriteLine($"Fetched Game: {JsonSerializer.Serialize(game)}");
                 return TypedResults.Ok(game);
             }).WithName("GetGame");
 
             app.MapPut("/api/v1/categories/{categoryId}/games/{gameId}", async (int categoryId, int gameId, UpdateGameDto dto, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Updating Game with ID: {gameId} in Category ID: {categoryId} using data: {JsonSerializer.Serialize(dto)}");
+                if (dto == null || (dto.Title == null && dto.Description == null))
+                {
+                    return Results.UnprocessableEntity(new ErrorResponse("Either title or description must be provided.", 422));
+                }
 
                 var game = await dbContext.Games.FirstOrDefaultAsync(g => g.Id == gameId && g.CategoryId == categoryId);
                 if (game == null)
                 {
-                    Console.WriteLine($"Game with ID: {gameId} not found in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Game with ID: {gameId} not found in Category ID: {categoryId}.", 404));
                 }
 
                 game.Title = dto.Title ?? game.Title;
                 game.Description = dto.Description ?? game.Description;
                 await dbContext.SaveChangesAsync();
 
-                Console.WriteLine($"Updated Game: {JsonSerializer.Serialize(game)}");
                 return Results.Ok(game);
             }).WithName("UpdateGame");
 
             app.MapDelete("/api/v1/categories/{categoryId}/games/{gameId}", async (int categoryId, int gameId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Deleting Game with ID: {gameId} in Category ID: {categoryId}");
-
                 var game = await dbContext.Games.FirstOrDefaultAsync(g => g.Id == gameId && g.CategoryId == categoryId);
                 if (game == null)
                 {
-                    Console.WriteLine($"Game with ID: {gameId} not found in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Game with ID: {gameId} not found in Category ID: {categoryId}.", 404));
                 }
 
                 dbContext.Games.Remove(game);
                 await dbContext.SaveChangesAsync();
 
-                Console.WriteLine($"Deleted Game ID: {gameId} in Category ID: {categoryId}");
                 return Results.NoContent();
             }).WithName("DeleteGame");
         }
@@ -195,71 +165,65 @@ namespace DemoRest2024Live
         {
             app.MapGet("/api/v1/categories/{categoryId}/games/{gameId}/comments", async (int categoryId, int gameId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Fetching Comments for Game ID: {gameId} in Category ID: {categoryId}");
                 var comments = await dbContext.Comments.Where(c => c.GameId == gameId).ToListAsync();
-                Console.WriteLine($"Fetched Comments: {JsonSerializer.Serialize(comments)}");
                 return comments;
             }).WithName("GetComments");
 
             app.MapPost("/api/v1/categories/{categoryId}/games/{gameId}/comments", async (int categoryId, int gameId, CreateCommentDto dto, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Creating Comment for Game ID: {gameId} in Category ID: {categoryId} with data: {JsonSerializer.Serialize(dto)}");
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Content))
+                {
+                    return Results.UnprocessableEntity(new ErrorResponse("Comment content is required.", 422));
+                }
 
                 var comment = new Comment { Content = dto.Content, CreatedAt = DateTimeOffset.UtcNow, GameId = gameId };
                 dbContext.Comments.Add(comment);
                 await dbContext.SaveChangesAsync();
-                Console.WriteLine($"Created Comment ID: {comment.Id}");
 
                 return TypedResults.Created($"/api/v1/categories/{categoryId}/games/{gameId}/comments/{comment.Id}", comment);
             }).WithName("CreateComment");
 
             app.MapGet("/api/v1/categories/{categoryId}/games/{gameId}/comments/{commentId}", async (int categoryId, int gameId, int commentId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Fetching Comment with ID: {commentId} for Game ID: {gameId} in Category ID: {categoryId}");
                 var comment = await dbContext.Comments.FirstOrDefaultAsync(c => c.Id == commentId && c.GameId == gameId);
                 if (comment == null)
                 {
-                    Console.WriteLine($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.", 404));
                 }
 
-                Console.WriteLine($"Fetched Comment: {JsonSerializer.Serialize(comment)}");
                 return TypedResults.Ok(comment);
             }).WithName("GetComment");
 
             app.MapPut("/api/v1/categories/{categoryId}/games/{gameId}/comments/{commentId}", async (int categoryId, int gameId, int commentId, UpdateCommentDto dto, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Updating Comment with ID: {commentId} for Game ID: {gameId} in Category ID: {categoryId} using data: {JsonSerializer.Serialize(dto)}");
+                if (dto == null || string.IsNullOrWhiteSpace(dto.Content))
+                {
+                    return Results.UnprocessableEntity(new ErrorResponse("Updated comment content is required.", 422));
+                }
 
                 var comment = await dbContext.Comments.FirstOrDefaultAsync(c => c.Id == commentId && c.GameId == gameId);
                 if (comment == null)
                 {
-                    Console.WriteLine($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.", 404));
                 }
 
                 comment.Content = dto.Content;
                 await dbContext.SaveChangesAsync();
 
-                Console.WriteLine($"Updated Comment: {JsonSerializer.Serialize(comment)}");
                 return Results.Ok(comment);
             }).WithName("UpdateComment");
 
             app.MapDelete("/api/v1/categories/{categoryId}/games/{gameId}/comments/{commentId}", async (int categoryId, int gameId, int commentId, GamebaDbContext dbContext) =>
             {
-                Console.WriteLine($"Deleting Comment with ID: {commentId} for Game ID: {gameId} in Category ID: {categoryId}");
-
                 var comment = await dbContext.Comments.FirstOrDefaultAsync(c => c.Id == commentId && c.GameId == gameId);
                 if (comment == null)
                 {
-                    Console.WriteLine($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.");
-                    return Results.NotFound();
+                    return Results.NotFound(new ErrorResponse($"Comment with ID: {commentId} not found for Game ID: {gameId} in Category ID: {categoryId}.", 404));
                 }
 
                 dbContext.Comments.Remove(comment);
                 await dbContext.SaveChangesAsync();
 
-                Console.WriteLine($"Deleted Comment ID: {commentId} for Game ID: {gameId} in Category ID: {categoryId}");
                 return Results.NoContent();
             }).WithName("DeleteComment");
         }

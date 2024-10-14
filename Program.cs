@@ -1,11 +1,12 @@
 using System.Text.Json;
 using DemoRest2024Live;
 using DemoRest2024Live.Data;
+using DemoRest2024Live.Validators; // Add this line
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using SharpGrip.FluentValidation.AutoValidation.Endpoints.Extensions;
-
-
+using Microsoft.AspNetCore.Http.Json;
+using Microsoft.OpenApi.Models; // Add this line for Swagger
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,39 +14,62 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddDbContext<GamebaDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))); // Use PostgreSQL connection
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+// Add FluentValidation automatic validation for the endpoints
 builder.Services.AddFluentValidationAutoValidation(configuration => { });
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCategoryDtoValidator>(); // Register validators
 builder.Services.AddResponseCaching();
+builder.Services.AddEndpointsApiExplorer(); // Add support for endpoint exploration
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "DemoRest API", Version = "v1" }); // Swagger setup
+}); // Add Swagger generator
+builder.Services.Configure<JsonOptions>(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = null; // Optional: Configure JSON options
+});
 
 var app = builder.Build();
-
-/*
-    API Endpoints:
-    Categories:
-    /api/v1/categories          GET    List all categories (200)
-    /api/v1/categories          POST   Create a new category (201)
-    /api/v1/categories/{id}     GET    Retrieve a specific category by ID (200)
-    /api/v1/categories/{id}     PUT    Update a specific category by ID (200)
-    /api/v1/categories/{id}     DELETE Remove a specific category by ID (204)
-    Games:
-    /api/v1/categories/{id}/games         GET    List all games (200)
-    /api/v1/categories/{id}/games       POST   Create a new game (201)
-    /api/v1/categories/{id}/games/{gameId}    GET    Retrieve a specific game by ID (200)
-    /api/v1/categories/{id}/games/{gameId}      PUT    Update a specific game by ID (200)
-    /api/v1/categories/{id}/games/{gameId}     DELETE Remove a specific game by ID (204)
-    Comments:
-    /api/v1/categories/{id}/games/{gameId}/comments       GET    List all comments for a specific game (200)
-    /api/v1/categories/{id}/games/{gameId}/comments       POST   Create a new comment for a specific game (201)
-    /api/v1/categories/{id}/games/{gameId}/comments/{commentId} GET    Retrieve a specific comment by category and game ids (200)
-    /api/v1/categories/{id}/games/{gameId}/comments/{commentId} PUT    Update a specific comment by ID (200)
-    /api/v1/categories/{id}/games/{gameId}/comments/{commentId} DELETE Remove a specific comment by ID (204)
-*/
 
 // API root endpoint
 app.MapGet("/api", (HttpContext httpContext, LinkGenerator linkGenerator) => Results.Ok(new List<LinkDto>
 {
     new(linkGenerator.GetUriByName(httpContext, "GetCategories"), "categories", "GET"),
 })).WithName("GetRoot");
+
+// Error Handling Middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next.Invoke();
+    }
+    catch (FluentValidation.ValidationException validationEx) // Handle FluentValidation exceptions
+    {
+        var errorResponse = new ErrorResponse(validationEx.Errors.Select(e => e.ErrorMessage).FirstOrDefault() ?? "Validation failed.", 400);
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsJsonAsync(errorResponse);
+    }
+    catch (Exception)
+    {
+        var errorResponse = new ErrorResponse("An unexpected error occurred.", 400);
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsJsonAsync(errorResponse);
+    }
+});
+
+// Configure Swagger
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c => 
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "DemoRest API V1");
+        c.RoutePrefix = string.Empty; // Set Swagger UI at the app's root
+    });
+}
+
+app.UseHttpsRedirection();
 
 // Map API Endpoints
 app.MapCategoryEndpoints();
@@ -54,12 +78,10 @@ app.MapCommentEndpoints();
 
 // Middleware
 app.UseResponseCaching();
-app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
-
 
 public class LinkDto
 {
@@ -72,5 +94,20 @@ public class LinkDto
         Href = href;
         Rel = rel;
         Method = method;
+    }
+}
+
+// ErrorResponse class for structured error messages
+public class ErrorResponse
+{
+    public string Message { get; set; }
+    public int StatusCode { get; set; }
+    public DateTime Timestamp { get; set; }
+
+    public ErrorResponse(string message, int statusCode)
+    {
+        Message = message;
+        StatusCode = statusCode;
+        Timestamp = DateTime.UtcNow;
     }
 }
